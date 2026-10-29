@@ -6,8 +6,33 @@ interface DocContentProps {
   html: string;
 }
 
+const EDITOR_ORIGIN = 'https://play.legalese.com';
+
 export default function DocContent({ html }: DocContentProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  // True once the editor has answered: these docs are in its sidebar
+  const inEditorRef = useRef(false);
+
+  // The editor shows these docs in an iframe. Ask the parent whether it is the
+  // editor; postMessage only delivers to a parent of that origin.
+  useEffect(() => {
+    if (window.parent === window) return;
+    const ancestor = window.location.ancestorOrigins?.[0];
+    if (ancestor !== undefined && ancestor !== EDITOR_ORIGIN) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (
+        event.origin === EDITOR_ORIGIN &&
+        event.source === window.parent &&
+        event.data?.type === 'l4-editor-host'
+      ) {
+        inEditorRef.current = true;
+      }
+    };
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: 'l4-docs-hello' }, EDITOR_ORIGIN);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   // Add "Run code" buttons to L4 code blocks
   useEffect(() => {
@@ -28,7 +53,7 @@ export default function DocContent({ html }: DocContentProps) {
       // Get the code content
       const codeContent = codeElement.textContent || '';
       const encodedContent = encodeURIComponent(codeContent);
-      const playgroundUrl = `https://jl4.legalese.com/?program=${encodedContent}`;
+      const playgroundUrl = `https://play.legalese.com/?program=${encodedContent}`;
 
       // Create wrapper
       const wrapper = document.createElement('div');
@@ -44,6 +69,15 @@ export default function DocContent({ html }: DocContentProps) {
           Run code
         </a>
       `;
+
+      // In the editor's sidebar, open the example in that editor instead of a
+      // new tab. A modified click still opens a tab.
+      header.querySelector('a')?.addEventListener('click', (event) => {
+        if (!inEditorRef.current) return;
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        window.parent.postMessage({ type: 'l4-open-program', program: codeContent }, EDITOR_ORIGIN);
+      });
 
       // Create content wrapper
       const contentWrapper = document.createElement('div');

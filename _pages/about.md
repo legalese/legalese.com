@@ -22,7 +22,7 @@ Our activities are distributed across 2 parallel tracks:
 
 These are a [stack](https://a16z.com/2015/01/22/the-full-stack-startup/): the web apps sit atop smart contracts which sits atop smart law/statutes/business process rules, and they all sit atop a bunch of math, logic, and a few "[magic](https://en.wikipedia.org/wiki/Clarke%27s_three_laws)" tricks.
 
-**[L4](https://legalese.com/l4)** is our domain-specific programming language for law. It treats legal rules and contracts as executable specifications, allowing you to formalize rules with mathematical precision, test contracts against scenarios, find logical contradictions automatically, and generate user-facing applications from legal specifications. Try the [web-based IDE](https://jl4.legalese.com/), explore the [documentation](https://legalese.com/l4), or check out the [open-source code on GitHub](https://github.com/legalese/l4-ide).
+**[L4](https://legalese.com/l4)** is our domain-specific programming language for law. It treats legal rules and contracts as executable specifications, allowing you to formalize rules with mathematical precision, test contracts against scenarios, find logical contradictions automatically, and generate user-facing applications from legal specifications. Try the [web-based IDE](https://play.legalese.com/), explore the [documentation](https://legalese.com/l4), or check out the [open-source code on GitHub](https://github.com/legalese/l4-ide).
 
 L4 has been piloted with government agencies for regulatory compliance, insurance companies for policy analysis, and legislative drafting offices for rules-as-code initiatives. The toolchain includes a VS Code extension, interactive REPL, decision service, and formal verification capabilities.
 
