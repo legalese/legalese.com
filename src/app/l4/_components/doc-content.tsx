@@ -53,11 +53,9 @@ export default function DocContent({ html }: DocContentProps) {
       // Get the code content
       const codeContent = codeElement.textContent || '';
       const encodedContent = encodeURIComponent(codeContent);
-      // CloudFront rejects URLs over 8,192 bytes, so a longer program goes in
-      // the fragment, which never leaves the browser. Shorter ones keep the
-      // query, which every release of the editor reads.
-      const queryUrl = `https://play.legalese.com/?program=${encodedContent}`;
-      const playgroundUrl = queryUrl.length <= 8000 ? queryUrl : `https://play.legalese.com/#program=${encodedContent}`;
+      // In the fragment, which never leaves the browser: as a query, a long
+      // program makes a URL over CloudFront's 8,192-byte limit.
+      const playgroundUrl = `https://play.legalese.com/#program=${encodedContent}`;
 
       // Create wrapper
       const wrapper = document.createElement('div');
