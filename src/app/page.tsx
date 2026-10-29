@@ -136,7 +136,7 @@ export default function Index() {
             </div>
             <div className="lg:w-1/2">
               <div className="rounded-lg text-sm overflow-x-auto">
-                <iframe src="https://jl4.legalese.com/?id=49ca8910-b83b-4ac9-8836-a120df51ea13" frame-border="0" width="100%" height="380px" loading="lazy" />
+                <iframe src="https://play.legalese.com/?id=49ca8910-b83b-4ac9-8836-a120df51ea13" frame-border="0" width="100%" height="380px" loading="lazy" />
                 <p className="text-sm text-gray-500 mt-3 italic">
                   Why can't legal contracts be as clear as code?
                 </p>

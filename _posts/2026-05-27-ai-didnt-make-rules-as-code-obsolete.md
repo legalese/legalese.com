@@ -66,4 +66,4 @@ We are not building [L4](https://legalese.com/l4) because we think AI failed at 
 
 That artefact is a rule with a runtime. Now is precisely the moment to build it.
 
-**[Try L4 in your browser](https://jl4.legalese.com)** — or read [my prior post](/posts/2026-04-01-from-vibes-to-verification) for a more context.
+**[Try L4 in your browser](https://play.legalese.com)** — or read [my prior post](/posts/2026-04-01-from-vibes-to-verification) for a more context.

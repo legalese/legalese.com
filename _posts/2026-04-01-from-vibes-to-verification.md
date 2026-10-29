@@ -93,4 +93,4 @@ The underlying question is not whether AI will reshape how rules are written, in
 
 That verification layer is what we are building. It is early, and there is a great deal still to do. But the tools work, the approach is sound, and the need — as anyone who has watched AI confidently misstate a legal rule can attest — is not theoretical.
 
-**[Try L4 in your browser](https://jl4.legalese.com) or [install the VS Code extension](https://marketplace.visualstudio.com/items?itemName=Legalese.l4-vscode) and start codifying your rules.**
+**[Try L4 in your browser](https://play.legalese.com) or [install the VS Code extension](https://marketplace.visualstudio.com/items?itemName=Legalese.l4-vscode) and start codifying your rules.**
