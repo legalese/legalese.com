@@ -53,7 +53,9 @@ export default function DocContent({ html }: DocContentProps) {
       // Get the code content
       const codeContent = codeElement.textContent || '';
       const encodedContent = encodeURIComponent(codeContent);
-      const playgroundUrl = `https://play.legalese.com/?program=${encodedContent}`;
+      // In the fragment, which never leaves the browser: as a query, a long
+      // program makes a URL over CloudFront's 8,192-byte limit.
+      const playgroundUrl = `https://play.legalese.com/#program=${encodedContent}`;
 
       // Create wrapper
       const wrapper = document.createElement('div');
