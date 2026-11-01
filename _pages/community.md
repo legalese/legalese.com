@@ -61,7 +61,7 @@ For now, check out:
 
 *   [L4 Documentation](https://legalese.com/l4)
     
-*   [L4 Web IDE](https://jl4.legalese.com/)
+*   [L4 Web IDE](https://play.legalese.com/)
     
 *   [L4 GitHub Repository](https://github.com/legalese/l4-ide)
     

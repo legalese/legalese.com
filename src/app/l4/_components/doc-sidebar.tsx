@@ -131,7 +131,7 @@ export default function DocSidebar({ sections, baseRoute = '/l4', isOpen = true,
         {/* Mobile Online IDE button */}
         <div className="p-4 border-t border-gray-200 mt-auto">
           <a
-            href="https://jl4.legalese.com"
+            href="https://play.legalese.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent/90 rounded-md transition-colors"

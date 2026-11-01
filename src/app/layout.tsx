@@ -59,7 +59,7 @@ export default function RootLayout({
             "font-src 'self' https://legalese.com",
             "img-src 'self' https://legalese.com https://workoscdn.com https://*.googleusercontent.com",
             `connect-src 'self' https://legalese.com https://${SERVICE_DOMAIN} https://ai.${SERVICE_DOMAIN} https://*.workos.com`,
-            "frame-src 'self' https://legalese.com https://jl4.legalese.com https://*.workos.com",
+            "frame-src 'self' https://legalese.com https://play.legalese.com https://*.workos.com",
             "object-src 'none'",
             "base-uri 'self' https://legalese.com",
           ].join("; ")}

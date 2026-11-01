@@ -80,7 +80,7 @@ export default function DocHeader({ onMenuToggle, hasNavigation = true }: DocHea
           </nav>
           
           <a
-            href="https://jl4.legalese.com"
+            href="https://play.legalese.com"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent/90 rounded-md transition-colors"
