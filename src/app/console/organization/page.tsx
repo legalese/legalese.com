@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useConsole } from "../console-context";
 import type { ConsoleOrganization } from "../console-context";
 import {
   authHeaders,
   useServiceHealth,
   planFromHealth,
+  type AiSpendLimit,
   type ServiceHealth,
   type HealthConfig,
 } from "../console-utils";
@@ -295,6 +297,15 @@ function ServiceDetails({
             : "Unlimited (metered)",
       });
     }
+    // Paid plans only: free plans have no AI prices, so no spend to limit.
+    if (cfg.plan !== "free") {
+      aiDetails.push({
+        label: "Daily AI spend limit",
+        value: ai.spendLimit
+          ? formatCostCents(ai.spendLimit.dailyCents, ai.spendLimit.currency)
+          : "None",
+      });
+    }
     if (typeof ai.conversationTtlDays === "number") {
       aiDetails.push({
         label: "Conversation retention",
@@ -415,6 +426,7 @@ function PlanActionButton({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitsOpen, setLimitsOpen] = useState(false);
 
   if (!isAdmin || mode === null) return null;
 
@@ -450,12 +462,28 @@ function PlanActionButton({
       <span className="inline-flex items-center gap-2">
         {error && <span className="text-xs text-red-600">{error}</span>}
         <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setLimitsOpen(true);
+          }}
+          className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:border-gray-400 hover:text-gray-900 transition-colors"
+        >
+          Limits
+        </button>
+        <button
           onClick={openPortal}
           disabled={submitting}
           className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:border-gray-400 hover:text-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {submitting ? "Opening…" : "Manage"}
         </button>
+        {limitsOpen && (
+          <AiSpendLimitDialog
+            slug={slug}
+            onClose={() => setLimitsOpen(false)}
+          />
+        )}
       </span>
     );
   }
@@ -468,6 +496,225 @@ function PlanActionButton({
     >
       Upgrade to Metered
     </Link>
+  );
+}
+
+// ── AI Spend Limit Dialog ──────────────────────────────────────────────
+//
+// Opened by "Limits" beside "Manage". Reads and sets the org's daily AI
+// spend limit through jl4-auth-proxy's /billing/ai-spend-limit, which
+// records it in the plan's currency. The limit covers Legalese AI only;
+// L4 hosting keeps its own limits.
+//
+// Rendered into document.body: inside the <summary> it's opened from,
+// every click and keypress in the form would also toggle the
+// Subscription <details>.
+
+interface AiSpendLimitState {
+  /** The plan's currency for AI usage; null when AI usage isn't priced. */
+  currency: string | null;
+  spendLimit: AiSpendLimit | null;
+  spentTodayCents: number;
+  /** Spend at which AI requests pause (the limit less the buffer). */
+  blockAtCents: number | null;
+  bufferPercent: number;
+  /** false when the limit was set in a currency the plan no longer uses. */
+  enforced: boolean;
+  over: boolean;
+}
+
+/** jl4-auth-proxy's MAX_AI_SPEND_LIMIT_CENTS. */
+const MAX_AI_SPEND_LIMIT_CENTS = 100_000_000;
+
+function AiSpendLimitDialog({
+  slug,
+  onClose,
+}: {
+  slug: string;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [state, setState] = useState<AiSpendLimitState | null>(null);
+  const [amount, setAmount] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const url = `${AUTH_API_URL}/billing/ai-spend-limit?org=${encodeURIComponent(slug)}`;
+
+  useEffect(() => {
+    dialogRef.current?.showModal();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(url, { headers: authHeaders(), credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        return (await res.json()) as AiSpendLimitState;
+      })
+      .then((s) => {
+        if (cancelled) return;
+        setState(s);
+        if (s.spendLimit) setAmount((s.spendLimit.dailyCents / 100).toFixed(2));
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : "Could not load the AI spend limit",
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  async function save(dailyCents: number | null) {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const headers = new Headers(authHeaders());
+      headers.set("Content-Type", "application/json");
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ dailyCents }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      // The Subscription details pick the new limit up on the next
+      // health poll (every 10 s).
+      dialogRef.current?.close();
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Could not save the AI spend limit",
+      );
+      setSaving(false);
+    }
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!state?.currency) return;
+    const cents = Math.round(Number(amount) * 100);
+    if (
+      !Number.isFinite(cents) ||
+      cents < 1 ||
+      cents > MAX_AI_SPEND_LIMIT_CENTS
+    ) {
+      setSaveError(
+        `Enter an amount from ${formatCostCents(1, state.currency)} to ${formatCostCents(MAX_AI_SPEND_LIMIT_CENTS, state.currency)}.`,
+      );
+      return;
+    }
+    void save(cents);
+  }
+
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      className="w-[calc(100%-2rem)] max-w-md rounded-lg border border-gray-200 p-0 shadow-xl backdrop:bg-black/30"
+    >
+      <form onSubmit={onSubmit} className="p-5 space-y-4 font-sans text-sm text-gray-700">
+        <h2 className="text-base font-semibold text-gray-900">AI spend limit</h2>
+        <p>
+          Applies organization wide to Legalese AI requests. Renews midnight
+          UTC.
+        </p>
+
+        {loadError && <p className="text-red-600">{loadError}</p>}
+        {!state && !loadError && <p className="text-gray-400">Loading…</p>}
+
+        {state && state.currency === null && (
+          <p>
+            Your plan doesn&apos;t price AI usage, so there is no AI spend to
+            limit.
+          </p>
+        )}
+
+        {state && state.currency !== null && (
+          <>
+            <p className="text-gray-500">
+              AI spend today:{" "}
+              <span className="font-mono text-gray-700">
+                {formatCostCents(state.spentTodayCents, state.currency)}
+              </span>
+              {state.over && (
+                <span className="text-yellow-700"> · limit reached</span>
+              )}
+            </p>
+            {state.spendLimit && !state.enforced && (
+              <p className="rounded border border-yellow-400 bg-yellow-50 px-3 py-2 text-yellow-800">
+                This limit was set in {state.spendLimit.currency.toUpperCase()},
+                but your plan now bills in {state.currency.toUpperCase()}. Save
+                it again to apply it.
+              </p>
+            )}
+            <label className="block">
+              <span className="block text-sm font-medium text-gray-700 mb-1">
+                Daily AI spend limit ({state.currency.toUpperCase()})
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="50.00"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                disabled={saving}
+                required
+                autoFocus
+              />
+            </label>
+          </>
+        )}
+
+        {saveError && <p className="text-red-600">{saveError}</p>}
+
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <div>
+            {state?.spendLimit && (
+              <button
+                type="button"
+                onClick={() => void save(null)}
+                disabled={saving}
+                className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-800 disabled:opacity-60"
+              >
+                Remove limit
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.close()}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:border-gray-400 hover:text-gray-900 transition-colors"
+            >
+              {state?.currency === null ? "Close" : "Cancel"}
+            </button>
+            {state?.currency && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center px-3 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+    </dialog>,
+    document.body,
   );
 }
 
@@ -616,7 +863,7 @@ function UsageChart({
             className="text-xs rounded border border-gray-200 bg-white px-2 py-0.5 text-gray-600"
           >
             <option value="requests">Requests</option>
-            <option value="cost">Cost</option>
+            <option value="cost">Spend</option>
           </select>
         )}
       </div>
@@ -630,7 +877,7 @@ function UsageChart({
                   count: b.costCents ?? 0,
                 })),
                 className: "bg-accent/70 hover:bg-accent",
-                label: "Cost",
+                label: "Spend",
                 formatValue: (n) => formatCostCents(n, currency),
               }
             : {
@@ -672,8 +919,31 @@ const AI_METRICS: { value: AiMetric; label: string }[] = [
   { value: "completionTokens", label: "Completion tokens" },
   { value: "requests", label: "Requests" },
   { value: "audioSeconds", label: "Audio minutes" },
-  { value: "cost", label: "Cost" },
+  { value: "cost", label: "Spend" },
 ];
+
+// The viewer's own pick from the AI chart's metric dropdown, kept
+// across visits in this browser. Until they pick one, the chart opens
+// on spend when the plan prices AI usage, and on total tokens if not.
+const AI_METRIC_KEY = "console.aiUsageMetric";
+
+function readStoredAiMetric(): AiMetric | null {
+  try {
+    const v = localStorage.getItem(AI_METRIC_KEY);
+    return AI_METRICS.some((m) => m.value === v) ? (v as AiMetric) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeAiMetric(metric: AiMetric): void {
+  try {
+    localStorage.setItem(AI_METRIC_KEY, metric);
+  } catch {
+    // Storage unavailable (private window, blocked): the pick lasts
+    // until the page reloads.
+  }
+}
 
 // No frontend-side mapping for model labels — we surface whatever id
 // the /billing/usage response uses (`legalese-compose-4`, etc.) so a
@@ -747,6 +1017,7 @@ function AiUsageChart({
   const [currency, setCurrency] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [metric, setMetric] = useState<AiMetric>("totalTokens");
+  const [chosenMetric, setChosenMetric] = useState<AiMetric | null>(null);
   const [model, setModel] = useState<string>("");
   const days = period === "daily" ? 30 : 90;
 
@@ -806,11 +1077,23 @@ function AiUsageChart({
   const hasAudio = aiBuckets.some((b) =>
     Object.values(b.perModel).some((m) => (m.audioSeconds ?? 0) > 0),
   );
+
   useEffect(() => {
-    if (metric !== "audioSeconds") return;
-    if (aiBuckets.length === 0) return;
-    if (!hasAudio) setMetric("totalTokens");
-  }, [aiBuckets, metric, hasAudio]);
+    setChosenMetric(readStoredAiMetric());
+  }, []);
+
+  // Show the viewer's pick while the dropdown offers it, and otherwise
+  // the default: spend when the plan prices AI usage, total tokens if
+  // not. Settled once the data is in, since that decides what's offered.
+  useEffect(() => {
+    if (loading) return;
+    const offered =
+      chosenMetric !== null &&
+      (chosenMetric !== "cost" || isCostAvailable(currency)) &&
+      (chosenMetric !== "audioSeconds" || hasAudio);
+    if (offered) setMetric(chosenMetric);
+    else setMetric(isCostAvailable(currency) ? "cost" : "totalTokens");
+  }, [loading, chosenMetric, currency, hasAudio]);
 
   if (health.state === "loading") {
     return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">Loading...</div>;
@@ -822,8 +1105,10 @@ function AiUsageChart({
   // Today's total tokens for the limit-hit warning. Cheap to derive each
   // render from the already-fetched buckets (no useEffect/latch needed).
   let todayTokens: number | null = null;
+  let todaySpendCents: number | null = null;
   if (period === "daily" && aiBuckets.length > 0) {
     const last = aiBuckets[aiBuckets.length - 1]!;
+    todaySpendCents = last.costCents ?? 0;
     todayTokens = Object.values(last.perModel).reduce(
       (sum, m) => sum + m.promptTokens + m.completionTokens,
       0,
@@ -930,6 +1215,29 @@ function AiUsageChart({
         return null;
       })()}
 
+      {(() => {
+        // Mirrors jl4-auth-proxy: AI requests pause once today's AI
+        // spend reaches the limit less 1% (whole cents, rounded up).
+        const limit = health.data.config?.ai?.spendLimit;
+        if (!limit || todaySpendCents === null) return null;
+        if (!currency || limit.currency !== currency.toLowerCase()) return null;
+        const blockAt = limit.dailyCents - Math.floor(limit.dailyCents / 100);
+        if (todaySpendCents < blockAt) return null;
+        return (
+          <div className="mb-3 flex items-start gap-2 rounded border border-yellow-400 bg-yellow-50 px-3 py-2.5 text-sm text-yellow-800">
+            <span className="shrink-0">⚠</span>
+            <span>
+              You have reached today&apos;s AI spend limit of{" "}
+              {formatCostCents(limit.dailyCents, currency)}. Legalese AI is
+              paused until midnight UTC.{" "}
+              {isAdmin
+                ? "Raise or remove the limit under Subscription → Limits."
+                : "Please contact your administrator."}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Period + model + metric controls */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <PeriodSelector period={period} onChange={onPeriodChange} />
@@ -946,7 +1254,12 @@ function AiUsageChart({
         </select>
         <select
           value={metric}
-          onChange={(e) => setMetric(e.target.value as AiMetric)}
+          onChange={(e) => {
+            const m = e.target.value as AiMetric;
+            setMetric(m);
+            setChosenMetric(m);
+            storeAiMetric(m);
+          }}
           className="text-xs rounded border border-gray-200 bg-white px-2 py-0.5 text-gray-600"
         >
           {AI_METRICS.filter(
