@@ -48,6 +48,13 @@ function OrganizationInfo({
   // cascades to every other usage chart in the tab.
   const [period, setPeriod] = useState<Period>("daily");
 
+  // The plan's currency for AI usage, reported by the AI usage chart's
+  // fetch and handed to the Limits dialog, so the dialog opens without a
+  // request of its own. undefined until that fetch has answered.
+  const [aiCurrency, setAiCurrency] = useState<string | null | undefined>(
+    undefined,
+  );
+
   const rows: { label: string; value: React.ReactNode }[] = [
     { label: "Registered as", value: (
       <div className="flex justify-between">
@@ -68,6 +75,7 @@ function OrganizationInfo({
           health={health}
           isAdmin={isAdmin}
           slug={organization.slug}
+          aiCurrency={aiCurrency}
         />
       ),
     },
@@ -102,6 +110,7 @@ function OrganizationInfo({
           isAdmin={isAdmin}
           period={period}
           onPeriodChange={setPeriod}
+          onCurrency={setAiCurrency}
         />
       ),
     },
@@ -258,10 +267,12 @@ function ServiceDetails({
   health,
   isAdmin,
   slug,
+  aiCurrency,
 }: {
   health: ServiceHealth;
   isAdmin: boolean;
   slug: string;
+  aiCurrency: string | null | undefined;
 }) {
   if (health.state !== "ok" || !health.data.config) return null;
   const cfg = health.data.config;
@@ -350,6 +361,8 @@ function ServiceDetails({
             slug={slug}
             mode={planActionMode(cfg)}
             isAdmin={isAdmin}
+            spendLimit={cfg.ai?.spendLimit ?? null}
+            aiCurrency={aiCurrency}
           />
         </summary>
         <div
@@ -419,10 +432,14 @@ function PlanActionButton({
   slug,
   mode,
   isAdmin,
+  spendLimit,
+  aiCurrency,
 }: {
   slug: string;
   mode: "upgrade" | "manage" | null;
   isAdmin: boolean;
+  spendLimit: AiSpendLimit | null;
+  aiCurrency: string | null | undefined;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -481,6 +498,8 @@ function PlanActionButton({
         {limitsOpen && (
           <AiSpendLimitDialog
             slug={slug}
+            spendLimit={spendLimit}
+            currency={aiCurrency}
             onClose={() => setLimitsOpen(false)}
           />
         )}
@@ -501,76 +520,49 @@ function PlanActionButton({
 
 // ── AI Spend Limit Dialog ──────────────────────────────────────────────
 //
-// Opened by "Limits" beside "Manage". Reads and sets the org's daily AI
-// spend limit through jl4-auth-proxy's /billing/ai-spend-limit, which
-// records it in the plan's currency. The limit covers Legalese AI only;
-// L4 hosting keeps its own limits.
+// Opened by "Limits" beside "Manage". Sets or removes the org's daily AI
+// spend limit through jl4-auth-proxy's POST /billing/ai-spend-limit,
+// which records it in the plan's currency. The limit covers Legalese AI
+// only; L4 hosting keeps its own limits.
+//
+// It opens without a request of its own: the current limit comes from
+// /service/health (`.ai.spendLimit`), and the plan's currency from the AI
+// usage chart's /billing/usage fetch, which uses the same price lookup
+// the server applies when it saves the limit.
 //
 // Rendered into document.body: inside the <summary> it's opened from,
 // every click and keypress in the form would also toggle the
 // Subscription <details>.
-
-interface AiSpendLimitState {
-  /** The plan's currency for AI usage; null when AI usage isn't priced. */
-  currency: string | null;
-  spendLimit: AiSpendLimit | null;
-  spentTodayCents: number;
-  /** Spend at which AI requests pause (the limit less the buffer). */
-  blockAtCents: number | null;
-  bufferPercent: number;
-  /** false when the limit was set in a currency the plan no longer uses. */
-  enforced: boolean;
-  over: boolean;
-}
 
 /** jl4-auth-proxy's MAX_AI_SPEND_LIMIT_CENTS. */
 const MAX_AI_SPEND_LIMIT_CENTS = 100_000_000;
 
 function AiSpendLimitDialog({
   slug,
+  spendLimit,
+  currency,
   onClose,
 }: {
   slug: string;
+  /** The org's current limit, from /service/health. */
+  spendLimit: AiSpendLimit | null;
+  /**
+   * The plan's currency for AI usage, from the AI usage chart: null when
+   * the plan doesn't price AI usage, undefined until the chart has loaded.
+   */
+  currency: string | null | undefined;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [state, setState] = useState<AiSpendLimitState | null>(null);
-  const [amount, setAmount] = useState("");
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [amount, setAmount] = useState(
+    spendLimit ? (spendLimit.dailyCents / 100).toFixed(2) : "",
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const url = `${AUTH_API_URL}/billing/ai-spend-limit?org=${encodeURIComponent(slug)}`;
 
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(url, { headers: authHeaders(), credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `HTTP ${res.status}`);
-        }
-        return (await res.json()) as AiSpendLimitState;
-      })
-      .then((s) => {
-        if (cancelled) return;
-        setState(s);
-        if (s.spendLimit) setAmount((s.spendLimit.dailyCents / 100).toFixed(2));
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setLoadError(
-            err instanceof Error ? err.message : "Could not load the AI spend limit",
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
 
   async function save(dailyCents: number | null) {
     setSaveError(null);
@@ -578,12 +570,15 @@ function AiSpendLimitDialog({
     try {
       const headers = new Headers(authHeaders());
       headers.set("Content-Type", "application/json");
-      const res = await fetch(url, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ dailyCents }),
-      });
+      const res = await fetch(
+        `${AUTH_API_URL}/billing/ai-spend-limit?org=${encodeURIComponent(slug)}`,
+        {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({ dailyCents }),
+        },
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -601,7 +596,7 @@ function AiSpendLimitDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!state?.currency) return;
+    if (!currency) return;
     const cents = Math.round(Number(amount) * 100);
     if (
       !Number.isFinite(cents) ||
@@ -609,12 +604,18 @@ function AiSpendLimitDialog({
       cents > MAX_AI_SPEND_LIMIT_CENTS
     ) {
       setSaveError(
-        `Enter an amount from ${formatCostCents(1, state.currency)} to ${formatCostCents(MAX_AI_SPEND_LIMIT_CENTS, state.currency)}.`,
+        `Enter an amount from ${formatCostCents(1, currency)} to ${formatCostCents(MAX_AI_SPEND_LIMIT_CENTS, currency)}.`,
       );
       return;
     }
     void save(cents);
   }
+
+  // A limit set before the plan changed currency isn't applied.
+  const limitInOtherCurrency =
+    spendLimit !== null &&
+    !!currency &&
+    spendLimit.currency !== currency.toLowerCase();
 
   return createPortal(
     <dialog
@@ -629,37 +630,27 @@ function AiSpendLimitDialog({
           UTC.
         </p>
 
-        {loadError && <p className="text-red-600">{loadError}</p>}
-        {!state && !loadError && <p className="text-gray-400">Loading…</p>}
+        {currency === undefined && <p className="text-gray-400">Loading…</p>}
 
-        {state && state.currency === null && (
+        {currency === null && (
           <p>
             Your plan doesn&apos;t price AI usage, so there is no AI spend to
             limit.
           </p>
         )}
 
-        {state && state.currency !== null && (
+        {currency && (
           <>
-            <p className="text-gray-500">
-              AI spend today:{" "}
-              <span className="font-mono text-gray-700">
-                {formatCostCents(state.spentTodayCents, state.currency)}
-              </span>
-              {state.over && (
-                <span className="text-yellow-700"> · limit reached</span>
-              )}
-            </p>
-            {state.spendLimit && !state.enforced && (
+            {limitInOtherCurrency && spendLimit && (
               <p className="rounded border border-yellow-400 bg-yellow-50 px-3 py-2 text-yellow-800">
-                This limit was set in {state.spendLimit.currency.toUpperCase()},
-                but your plan now bills in {state.currency.toUpperCase()}. Save
-                it again to apply it.
+                This limit was set in {spendLimit.currency.toUpperCase()}, but
+                your plan now bills in {currency.toUpperCase()}. Save it again
+                to apply it.
               </p>
             )}
             <label className="block">
               <span className="block text-sm font-medium text-gray-700 mb-1">
-                Daily AI spend limit ({state.currency.toUpperCase()})
+                Daily AI spend limit ({currency.toUpperCase()})
               </span>
               <input
                 type="number"
@@ -682,7 +673,7 @@ function AiSpendLimitDialog({
 
         <div className="flex items-center justify-between gap-2 pt-1">
           <div>
-            {state?.spendLimit && (
+            {spendLimit && (
               <button
                 type="button"
                 onClick={() => void save(null)}
@@ -699,9 +690,9 @@ function AiSpendLimitDialog({
               onClick={() => dialogRef.current?.close()}
               className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:border-gray-400 hover:text-gray-900 transition-colors"
             >
-              {state?.currency === null ? "Close" : "Cancel"}
+              {currency === null ? "Close" : "Cancel"}
             </button>
-            {state?.currency && (
+            {currency && (
               <button
                 type="submit"
                 disabled={saving}
@@ -1004,12 +995,15 @@ function AiUsageChart({
   isAdmin,
   period,
   onPeriodChange,
+  onCurrency,
 }: {
   slug: string;
   health: ServiceHealth;
   isAdmin: boolean;
   period: Period;
   onPeriodChange: (p: Period) => void;
+  /** Told the plan's currency for AI usage (null: not priced) once loaded. */
+  onCurrency?: (currency: string | null) => void;
 }) {
   // One fetch per (slug, period, days) — the response carries the full
   // per-model breakdown so metric/model switching is purely client-side.
@@ -1040,9 +1034,10 @@ function AiUsageChart({
       .then((data) => {
         if (!cancelled && data) {
           setAiBuckets((data.buckets ?? []) as AiBucket[]);
-          setCurrency(
-            typeof data.currency === "string" ? data.currency : null,
-          );
+          const loaded =
+            typeof data.currency === "string" ? data.currency : null;
+          setCurrency(loaded);
+          onCurrency?.(loaded);
         }
       })
       .catch(() => {})
