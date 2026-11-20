@@ -1,0 +1,50 @@
+[
+ {
+  "code": "sg",
+  "name": "Singapore",
+  "instruments": 530,
+  "acts": 527,
+  "sourced": 524,
+  "encoded": 530,
+  "sections": 29117,
+  "encodedSections": 15141,
+  "pages": 35631,
+  "mapActs": 524
+ },
+ {
+  "code": "au",
+  "name": "Australia (Commonwealth)",
+  "instruments": 1263,
+  "acts": 1263,
+  "sourced": 1262,
+  "encoded": 22,
+  "sections": 79805,
+  "encodedSections": 642,
+  "pages": 51586,
+  "mapActs": 1228
+ },
+ {
+  "code": "au-wa",
+  "name": "Western Australia",
+  "instruments": 808,
+  "acts": 808,
+  "sourced": 808,
+  "encoded": 13,
+  "sections": 46711,
+  "encodedSections": 509,
+  "pages": 36591,
+  "mapActs": 797
+ },
+ {
+  "code": "nz",
+  "name": "New Zealand",
+  "instruments": 988,
+  "acts": 987,
+  "sourced": 987,
+  "encoded": 1,
+  "sections": 93347,
+  "encodedSections": 318,
+  "pages": 41148,
+  "mapActs": 986
+ }
+]

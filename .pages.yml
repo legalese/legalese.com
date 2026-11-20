@@ -69,3 +69,105 @@ content:
         description: "Which footer column to show this link in (company, resources, contact, legal, none)"
       - { name: order, label: Order, type: number, description: "Order within footer column (lower = first)" }
       - { name: description, label: Description, type: string }
+
+  # Products, Solutions and Apps: one entry per page at /products/<slug>, /solutions/<slug>, /apps/<slug>.
+  # An entry is shown only when Published is on. Status "coming" lists it with a Coming tag and no page.
+  - name: products
+    label: Products
+    type: collection
+    path: _products
+    view:
+      fields: [ title, status, published, order ]
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: slug, label: Slug, type: string, required: true, description: "The last part of the URL, e.g. studio" }
+      - { name: navTitle, label: Menu title, type: string, description: "Shorter title for the menu (uses Title if empty)" }
+      - { name: tagline, label: Tagline, type: string, description: "One line shown on cards and under the page title" }
+      - name: status
+        label: Status
+        type: string
+        options:
+          values: [ "live", "coming" ]
+        default: "live"
+        description: "live: has its own page. coming: listed with a Coming tag, no page."
+      - { name: published, label: Published, type: boolean, default: false }
+      - { name: order, label: Order, type: number, description: "Order in menus and lists (lower = first)" }
+      - { name: demo, label: Demo URL, type: string, description: "Optional: a static demo in public/, e.g. /demos/lqa-dog-act/, embedded on the page" }
+      - { name: demoTitle, label: Demo heading, type: string }
+      - { name: demoNote, label: Demo note, type: string }
+      - { name: body, label: Content, type: rich-text }
+  - name: solutions
+    label: Solutions
+    type: collection
+    path: _solutions
+    view:
+      fields: [ title, status, published, order ]
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: slug, label: Slug, type: string, required: true, description: "The last part of the URL, e.g. studio" }
+      - { name: navTitle, label: Menu title, type: string, description: "Shorter title for the menu (uses Title if empty)" }
+      - { name: tagline, label: Tagline, type: string, description: "One line shown on cards and under the page title" }
+      - name: status
+        label: Status
+        type: string
+        options:
+          values: [ "live", "coming" ]
+        default: "live"
+        description: "live: has its own page. coming: listed with a Coming tag, no page."
+      - { name: published, label: Published, type: boolean, default: false }
+      - { name: order, label: Order, type: number, description: "Order in menus and lists (lower = first)" }
+      - { name: demo, label: Demo URL, type: string, description: "Optional: a static demo in public/, e.g. /demos/lqa-dog-act/, embedded on the page" }
+      - { name: demoTitle, label: Demo heading, type: string }
+      - { name: demoNote, label: Demo note, type: string }
+      - { name: body, label: Content, type: rich-text }
+  - name: apps
+    label: Apps
+    type: collection
+    path: _apps
+    view:
+      fields: [ title, status, published, order ]
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: slug, label: Slug, type: string, required: true, description: "The last part of the URL, e.g. studio" }
+      - { name: navTitle, label: Menu title, type: string, description: "Shorter title for the menu (uses Title if empty)" }
+      - { name: tagline, label: Tagline, type: string, description: "One line shown on cards and under the page title" }
+      - name: status
+        label: Status
+        type: string
+        options:
+          values: [ "live", "coming" ]
+        default: "live"
+        description: "live: has its own page. coming: listed with a Coming tag, no page."
+      - { name: published, label: Published, type: boolean, default: false }
+      - { name: order, label: Order, type: number, description: "Order in menus and lists (lower = first)" }
+      - { name: demo, label: Demo URL, type: string, description: "Optional: a static demo in public/, e.g. /demos/lqa-dog-act/, embedded on the page" }
+      - { name: demoTitle, label: Demo heading, type: string }
+      - { name: demoNote, label: Demo note, type: string }
+      - { name: body, label: Content, type: rich-text }
+
+  # Commons editorial pages at /commons/<slug> (the slug "index" is the Commons home introduction).
+  # Jurisdiction and Act pages are generated from github.com/legalese/commons and are not edited here.
+  - name: commons
+    label: Commons pages
+    type: collection
+    path: _commons
+    view:
+      fields: [ title, slug, published, order ]
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: slug, label: Slug, type: string, required: true, description: "The last part of the URL, e.g. studio" }
+      - { name: navTitle, label: Menu title, type: string, description: "Shorter title for the menu (uses Title if empty)" }
+      - { name: tagline, label: Tagline, type: string, description: "One line shown on cards and under the page title" }
+      - name: status
+        label: Status
+        type: string
+        options:
+          values: [ "live", "coming" ]
+        default: "live"
+        description: "live: has its own page. coming: listed with a Coming tag, no page."
+      - { name: published, label: Published, type: boolean, default: false }
+      - { name: order, label: Order, type: number, description: "Order in menus and lists (lower = first)" }
+      - { name: demo, label: Demo URL, type: string, description: "Optional: a static demo in public/, e.g. /demos/lqa-dog-act/, embedded on the page" }
+      - { name: demoTitle, label: Demo heading, type: string }
+      - { name: demoNote, label: Demo note, type: string }
+      - { name: body, label: Content, type: rich-text }

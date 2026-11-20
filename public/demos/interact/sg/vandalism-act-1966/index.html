@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Vandalism Act 1966 — your questions answered</title>
+<style>
+  :root {
+    --ink: #1d2422; --muted: #5e6a66; --rule: #dfe5e2; --panel: #ffffff; --bg: #f5f7f6;
+    --yes: #1e7a3c; --yes-bg: #e8f4ec; --no: #9a3b2f; --no-bg: #f8ebe8; --num: #2b4c8c; --num-bg: #e9eef8;
+    --pending: #8a958f; --accent: #c8376a; --focus: #1e7a3c;
+    --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  header { padding: 18px 20px 14px; border-bottom: 1px solid var(--rule); background: var(--panel); }
+  header .kicker { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  header h1 { margin: 4px 0 4px; font: 600 24px/1.2 var(--serif); }
+  header p { margin: 0; color: var(--muted); max-width: 80ch; font-size: 13.5px; }
+  .status { margin-top: 8px; font-size: 12.5px; }
+  .status b { font-weight: 600; }
+  .status .ok { color: var(--yes); } .status .off { color: var(--no); }
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  header, footer { flex: none; }
+  /* the two panels scroll separately */
+  main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(300px, 5fr) minmax(300px, 6fr); gap: 0; }
+  main > section { overflow-y: auto; min-height: 0; }
+  @media (max-width: 860px) { html, body { height: auto; } body { display: block; } main { grid-template-columns: 1fr; } main > section { overflow: visible; } }
+  section { padding: 16px 20px 40px; }
+  section + section { border-left: 1px solid var(--rule); background: var(--panel); }
+  @media (max-width: 860px) { section + section { border-left: 0; border-top: 1px solid var(--rule); } }
+  h2 { font: 600 13px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 4px 0 12px; }
+  .group { font: 600 15px/1.3 var(--serif); margin: 18px 0 8px; }
+  .counter { font-size: 12.5px; color: var(--muted); margin: -6px 0 10px; }
+
+  /* decisions */
+  .decision { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 8px; overflow: hidden; }
+  .decision.pending { border-style: dashed; }
+  .d-head { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; }
+  .d-head:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .d-q { font-size: 14px; }
+  .pending .d-q { color: var(--muted); }
+  .chip { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .chip.pending { color: var(--pending); background: #eef1ef; font-weight: 500; }
+  .chip.yes { color: var(--yes); background: var(--yes-bg); }
+  .chip.no { color: var(--no); background: var(--no-bg); }
+  .chip.num { color: var(--num); background: var(--num-bg); }
+  .chip.wait { color: var(--muted); background: #eef1ef; }
+  .chip.err { color: var(--no); background: var(--no-bg); font-weight: 500; }
+  .d-body { display: none; padding: 0 12px 12px; font-size: 13.5px; color: #36403c; border-top: 1px solid var(--rule); }
+  .decision.open .d-body { display: block; }
+  .d-body .why { margin: 10px 0 8px; }
+  .d-body .src { font-family: var(--serif); font-size: 13px; color: var(--muted); border-left: 3px solid var(--rule); padding: 2px 0 2px 10px; margin: 8px 0; }
+  .d-body ul { margin: 6px 0 0 18px; padding: 0; }
+  .d-body .need { color: var(--muted); }
+  .caret { display: inline-block; width: 12px; color: var(--muted); transition: transform .15s; }
+  .decision.open .caret { transform: rotate(90deg); }
+
+  /* questions */
+  .question { border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; margin: 0 0 10px; }
+  .question.answered { border-color: #b9d8c4; background: #fbfdfc; }
+  .q-text { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+  .q-feeds { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt { border: 1px solid var(--rule); background: #fff; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: 13.5px; cursor: pointer; color: var(--ink); }
+  .opt:hover { border-color: var(--yes); }
+  .opt[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: #fff; }
+  .opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .clear { margin-left: 6px; background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+  .toolbar button { font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; cursor: pointer; }
+  body.embedded header .kicker, body.embedded header h1, body.embedded header p { display: none; }
+  body.embedded header { padding: 8px 20px; }
+  .studio-cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; font: 600 13.5px var(--sans); cursor: pointer; text-decoration: none; }
+  .studio-cta:hover { background: #7a2839; }
+  .studio-cta small { font-weight: 400; opacity: .85; }
+  body.embedded .studio-row { display: flex; justify-content: flex-end; }
+  footer { padding: 8px 20px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule); }
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Legalese Commons · Singapore · executable law</div>
+  <h1>Vandalism Act 1966: your questions answered</h1>
+  <p>Answer the questions on the right. Each decision on the left is worked out by the L4 encoding of the Act, running live on Legalese Cloud, as soon as you have answered what it needs. Open a decision to see why.</p>
+  <div class="status" id="status"></div>
+  <div class="studio-row"><a class="studio-cta" href="/products/studio" target="_top" title="Open this encoding in Legalese Studio">Refine and deploy in Legalese Studio <small>→</small></a></div>
+</header>
+<main>
+  <section aria-labelledby="dh">
+    <h2 id="dh">Decisions</h2>
+    <div class="counter" id="counter"></div>
+    <div id="decisions"></div>
+  </section>
+  <section aria-labelledby="qh">
+    <h2 id="qh">Questions</h2>
+    <div class="toolbar"><span id="qcount"></span><button type="button" id="reset">Start again</button></div>
+    <div id="questions"></div>
+  </section>
+</main>
+<footer>
+  The encoding is a draft, from the seat of the person accused, and has not been verified by a named reviewer. It is not legal advice.
+  Source: Vandalism Act 1966 (Singapore Statutes Online). Rules: <a href="https://github.com/legalese/commons/tree/main/subjects/sg/vandalism-act-1966">legalese/commons</a>.
+</footer>
+
+<script>
+if (window.self !== window.top) document.body.classList.add("embedded");
+/* ---------- connection: fill these in once the rules are deployed ---------- */
+const CLOUD = {
+  base: "https://legalese.legalese.cloud",   // the organisation's Legalese Cloud address
+  deployment: "sg-vandalism-act-1966",
+  key: "",            // a publishable key: only l4:rules and l4:evaluate
+};
+
+/* ---------- the questions a person can be asked (the GIVEN inputs of the published rules) ---------- */
+const INPUTS = {
+  "the conduct": { text: "What did you do?", type: "enum", options: [
+    "writing or marking on property", "posting up a poster or notice", "hanging a flag or banner with a slogan",
+    "stealing property", "destroying property", "damaging property"] },
+  "the owner": { text: "Who owns the property?", type: "enum", options: [
+    "the Government", "a foreign government", "a statutory body", "an armed force lawfully present in Singapore",
+    "a private company", "a private individual"] },
+  "had written permission": { text: "Had the owner given you written permission?", type: "bool" },
+  "committed it": { text: "Did you do it yourself?", type: "bool" },
+  "attempted it": { text: "Did you try to do it?", type: "bool" },
+  "caused it to be done": { text: "Did you get someone else to do it?", type: "bool" },
+  "first conviction under this Act": { text: "Would this be your first conviction under the Vandalism Act?", type: "bool" },
+  "done with a delible substance": { text: "If you wrote or marked something: was it with something that can be removed (a delible substance)?", type: "bool" },
+  "excluded by CPC ss 325(1) or 330(1)": { text: "Does the Criminal Procedure Code exclude you from caning (for example, you are a woman or a man over 50)?", type: "bool" },
+  "the offence": { text: "Which offence are you suspected of?", type: "enum", options: [
+    "the section 3 vandalism offence", "the section 4(2) failure to produce offence"] },
+  "the demander": { text: "Who is asking you to hand over or give up an article?", type: "enum", options: [
+    "a Singapore Police Force officer", "a Special Constabulary member", "an Auxiliary Police Force officer",
+    "SAF military police", "police of a foreign armed force lawfully present", "a private security guard",
+    "a town council officer", "the property owner"] },
+  "produced it on demand": { text: "Did you hand it over when asked?", type: "bool" },
+  "reasonably believes it relates to an offence or is evidence": { text: "Does that person reasonably believe the article relates to an offence or is evidence?", type: "bool" },
+};
+
+/* ---------- the decisions (the published rules), in the order a person meets them ---------- */
+const DECISIONS = [
+  { group: "Is it vandalism, and is it an offence?",
+    fn: "Is what I did vandalism", q: "Is what I did vandalism?", kind: "bool",
+    inputs: ["the conduct", "the owner", "had written permission"], cite: "s 2",
+    why: { true: "It is an act of vandalism under s 2.", false: "It is not an act of vandalism under s 2. It may still be an offence under another law, which this encoding does not cover." },
+    src: "An act of vandalism is writing, drawing, marking, posting a notice or hanging a flag or banner on public property, or on private property without the owner's written permission; or stealing, destroying or damaging public property. Public property belongs to the Government, a statutory body, or an armed force lawfully present in Singapore." },
+  { fn: "Have I committed a vandalism offence", q: "Have I committed the vandalism offence?", kind: "bool",
+    inputs: ["the conduct", "the owner", "had written permission", "committed it", "attempted it", "caused it to be done"], cite: "s 3",
+    why: { true: "It is an act of vandalism and you did it, tried to, or got someone else to do it: an offence under s 3.", false: "Either it is not an act of vandalism, or you neither did it, tried to, nor got someone else to." },
+    src: "Any person who commits or attempts to commit or abets the commission of any act of vandalism shall be guilty of an offence." },
+  { group: "What can happen to me?",
+    fn: "What is the most I can be fined", q: "What is the most I can be fined?", kind: "money", inputs: [], cite: "s 3",
+    why: { any: "The maximum fine for vandalism." }, src: "Liable on conviction to a fine not exceeding $2,000 or to imprisonment for a term not exceeding 3 years." },
+  { fn: "What is the longest I can be imprisoned in months", q: "What is the longest I can be jailed?", kind: "months", inputs: [], cite: "s 3",
+    why: { any: "The maximum term of imprisonment for vandalism." }, src: "... or to imprisonment for a term not exceeding 3 years." },
+  { fn: "Must I be caned", q: "Must I be caned if I am convicted?", kind: "bool",
+    inputs: ["the conduct", "first conviction under this Act", "done with a delible substance", "excluded by CPC ss 325(1) or 330(1)"], cite: "s 3",
+    why: { true: "Caning is mandatory on conviction: the first-conviction exception does not apply, and the Criminal Procedure Code does not exclude you.", false: "Caning is not mandatory: either the first-conviction exception applies (a first conviction for posting a notice, hanging a flag or banner, or writing with a removable substance), or the Criminal Procedure Code excludes you." },
+    src: "Shall also be punished with caning with not less than 3 strokes and not more than 8 strokes, except on a first conviction for writing or marking with a delible substance, or for posting a notice or hanging a flag or banner." },
+  { fn: "What is the fewest strokes of the cane", q: "If I am caned, what is the fewest strokes?", kind: "strokes", inputs: [], cite: "s 3",
+    why: { any: "The minimum where caning is imposed." }, src: "Not less than 3 strokes ..." },
+  { fn: "What is the most strokes of the cane", q: "If I am caned, what is the most strokes?", kind: "strokes", inputs: [], cite: "s 3",
+    why: { any: "The maximum where caning is imposed." }, src: "... and not more than 8 strokes." },
+  { fn: "Can I be arrested without a warrant and refused bail", q: "Can I be arrested without a warrant, and refused bail?", kind: "bool",
+    inputs: ["the offence"], cite: "s 6",
+    why: { true: "The offence is arrestable (arrest without a warrant) and non-bailable (bail is not a right).", false: "This Act does not make the offence arrestable and non-bailable." },
+    src: "Offences under this Act are arrestable offences and non-bailable offences for the purposes of the Criminal Procedure Code 2010." },
+  { group: "If I am stopped",
+    fn: "Do I have to hand it over", q: "Do I have to hand over the article when this person asks?", kind: "bool",
+    inputs: ["the demander"], cite: "s 4(1)",
+    why: { true: "This person is one of the officers who can demand it under s 4(1).", false: "This person is not one of the officers s 4(1) lists, so the Act gives them no power to demand it." },
+    src: "A police officer, a member of the Special Constabulary, an officer of the Auxiliary Police Force or military police may demand that a person produce an article believed to be connected with an offence under this Act." },
+  { fn: "Is it an offence that I did not hand it over", q: "Have I committed an offence by not handing it over?", kind: "bool",
+    inputs: ["the demander", "produced it on demand"], cite: "s 4(2)",
+    why: { true: "A s 4(1) officer asked and you did not hand it over: an offence under s 4(2).", false: "Either you handed it over, or the person asking had no power to demand it." },
+    src: "Any person who fails to produce the article on demand shall be guilty of an offence." },
+  { fn: "What is the most I can be fined for not handing it over", q: "What is the most I can be fined for not handing it over?", kind: "money", inputs: [], cite: "s 4(2)",
+    why: { any: "The maximum fine for failing to produce an article on demand." }, src: "... liable on conviction to a fine not exceeding $500." },
+  { fn: "Can they take the article from me", q: "Can this person take the article from me?", kind: "bool",
+    inputs: ["the demander", "reasonably believes it relates to an offence or is evidence"], cite: "s 5",
+    why: { true: "A s 4(1) officer who reasonably believes the article relates to an offence or is evidence may seize it.", false: "Either the person is not a s 4(1) officer, or they do not reasonably believe the article relates to an offence or is evidence." },
+    src: "May seize any article which he reasonably believes to be connected with an offence under this Act or to be evidence relating to such an offence." },
+];
+
+/* ---------- state ---------- */
+const answers = {};      // input name -> value
+const results = {};      // fn -> { state: "pending" | "wait" | "done" | "err", value, error }
+const open = new Set();
+const hy = s => s.replace(/ /g, "-");
+const connected = () => CLOUD.base && CLOUD.deployment && CLOUD.key;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function evaluate(d) {
+  const args = {};
+  for (const n of d.inputs) args[n] = answers[n];
+  const url = `${CLOUD.base}/deployments/${CLOUD.deployment}/functions/${encodeURIComponent(hy(d.fn))}/evaluation`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${CLOUD.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ arguments: args }),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  const j = await r.json();
+  const v = j && j.contents && j.contents.result ? j.contents.result.value : undefined;
+  if (v === undefined) throw new Error("no value in the response");
+  return v;
+}
+
+let generation = 0;
+async function refresh() {
+  const gen = ++generation;
+  for (const d of DECISIONS) {
+    const ready = d.inputs.every(n => n in answers);
+    if (!ready) { results[d.fn] = { state: "pending" }; continue; }
+    if (!connected()) { results[d.fn] = { state: "err", error: "not connected" }; continue; }
+    const key = JSON.stringify(d.inputs.map(n => answers[n]));
+    const prev = results[d.fn];
+    if (prev && prev.key === key && (prev.state === "done" || prev.state === "wait")) continue;
+    results[d.fn] = { state: "wait", key };
+    render();
+    evaluate(d)
+      .then(v => { if (gen <= generation && results[d.fn].key === key) results[d.fn] = { state: "done", value: v, key }; render(); })
+      .catch(e => { if (results[d.fn].key === key) results[d.fn] = { state: "err", error: e.message, key }; render(); });
+  }
+  render();
+}
+
+function chip(d, r) {
+  if (!r || r.state === "pending") return `<span class="chip pending">Unanswered</span>`;
+  if (r.state === "wait") return `<span class="chip wait">Working…</span>`;
+  if (r.state === "err") return `<span class="chip err">${r.error === "not connected" ? "Not connected" : "Could not run"}</span>`;
+  const v = r.value;
+  if (d.kind === "bool") return v ? `<span class="chip yes">Yes</span>` : `<span class="chip no">No</span>`;
+  if (d.kind === "money") return `<span class="chip num">$${Number(v).toLocaleString("en-SG")}</span>`;
+  if (d.kind === "months") return `<span class="chip num">${v} months${v % 12 === 0 ? ` (${v / 12} years)` : ""}</span>`;
+  if (d.kind === "strokes") return `<span class="chip num">${v} strokes</span>`;
+  return `<span class="chip num">${esc(v)}</span>`;
+}
+
+function body(d, r) {
+  let h = "";
+  if (r && r.state === "done") {
+    const why = d.why.any || (r.value ? d.why.true : d.why.false);
+    h += `<div class="why">${esc(why)}</div>`;
+    if (d.inputs.length) h += `<div>Because you answered:</div><ul>${d.inputs.map(n => `<li>${esc(INPUTS[n].text)} <b>${fmt(INPUTS[n], answers[n])}</b></li>`).join("")}</ul>`;
+  } else if (r && r.state === "err") {
+    h += `<div class="why">${r.error === "not connected" ? "The rules are not yet deployed, so this decision cannot be worked out here." : "The rules could not be run: " + esc(r.error)}</div>`;
+  } else {
+    const missing = d.inputs.filter(n => !(n in answers));
+    h += `<div class="why need">Still needed:</div><ul class="need">${missing.map(n => `<li>${esc(INPUTS[n].text)}</li>`).join("")}</ul>`;
+  }
+  h += `<div class="src">${esc(d.cite)}: ${esc(d.src)}</div>`;
+  return h;
+}
+
+const fmt = (inp, v) => inp.type === "bool" ? (v ? "Yes" : "No") : esc(v);
+
+function render() {
+  const dl = document.getElementById("decisions");
+  let h = "", done = 0;
+  for (const d of DECISIONS) {
+    const r = results[d.fn];
+    if (r && r.state === "done") done++;
+    if (d.group) h += `<div class="group">${esc(d.group)}</div>`;
+    const pending = !r || r.state === "pending";
+    h += `<div class="decision ${pending ? "pending" : ""} ${open.has(d.fn) ? "open" : ""}" data-fn="${esc(d.fn)}">
+      <div class="d-head" role="button" tabindex="0" aria-expanded="${open.has(d.fn)}">
+        <span class="d-q"><span class="caret">▸</span> ${esc(d.q)}</span>${chip(d, r)}
+      </div>
+      <div class="d-body">${body(d, r)}</div></div>`;
+  }
+  dl.innerHTML = h;
+  document.getElementById("counter").textContent = `${done} of ${DECISIONS.length} decided`;
+  document.getElementById("qcount").textContent = `${Object.keys(answers).length} of ${Object.keys(INPUTS).length} answered`;
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const ql = document.getElementById("questions");
+  const order = [];
+  for (const d of DECISIONS) for (const n of d.inputs) if (!order.includes(n)) order.push(n);
+  ql.innerHTML = order.map(n => {
+    const inp = INPUTS[n], feeds = DECISIONS.filter(d => d.inputs.includes(n)).map(d => d.q);
+    const opts = inp.type === "bool" ? [true, false] : inp.options;
+    return `<div class="question ${n in answers ? "answered" : ""}">
+      <div class="q-text">${esc(inp.text)}</div>
+      <div class="q-feeds">Decides: ${feeds.map(esc).join(" · ")}</div>
+      <div class="opts" role="group" aria-label="${esc(inp.text)}">
+        ${opts.map(o => `<button type="button" class="opt" data-in="${esc(n)}" data-val='${esc(JSON.stringify(o))}' aria-pressed="${answers[n] === o}">${inp.type === "bool" ? (o ? "Yes" : "No") : esc(o)}</button>`).join("")}
+        ${n in answers ? `<button type="button" class="clear" data-clear="${esc(n)}">Clear</button>` : ""}
+      </div></div>`;
+  }).join("");
+}
+
+document.addEventListener("click", e => {
+  const o = e.target.closest(".opt");
+  if (o) { answers[o.dataset.in] = JSON.parse(o.dataset.val); refresh(); return; }
+  const c = e.target.closest("[data-clear]");
+  if (c) { delete answers[c.dataset.clear]; refresh(); return; }
+  const head = e.target.closest(".d-head");
+  if (head) { const fn = head.parentElement.dataset.fn; open.has(fn) ? open.delete(fn) : open.add(fn); render(); }
+});
+document.addEventListener("keydown", e => {
+  const head = e.target.closest && e.target.closest(".d-head");
+  if (head && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); head.click(); }
+});
+document.getElementById("reset").addEventListener("click", () => { for (const k in answers) delete answers[k]; open.clear(); refresh(); });
+
+document.getElementById("status").innerHTML = connected()
+  ? `<span class="ok">●</span> <b>Live:</b> decisions are worked out by the deployed rules on Legalese Cloud (${esc(CLOUD.deployment)}).`
+  : `<span class="off">●</span> <b>Not connected:</b> the rules are not yet deployed to Legalese Cloud, so decisions will show "Not connected" once their questions are answered.`;
+refresh();
+</script>
+</body>
+</html>
