@@ -616,8 +616,6 @@ function AiSpendLimitDialog({
     void save(cents);
   }
 
-  const buffer = state?.bufferPercent ?? 1;
-
   return createPortal(
     <dialog
       ref={dialogRef}
@@ -627,9 +625,8 @@ function AiSpendLimitDialog({
       <form onSubmit={onSubmit} className="p-5 space-y-4 font-sans text-sm text-gray-700">
         <h2 className="text-base font-semibold text-gray-900">AI spend limit</h2>
         <p>
-          The most Legalese AI may cost your organization in one day (UTC).
-          Once today&apos;s AI spend reaches {100 - buffer}% of the limit, AI
-          requests pause until midnight UTC. L4 hosting is not affected.
+          Applies organization wide to Legalese AI requests. Renews midnight
+          UTC.
         </p>
 
         {loadError && <p className="text-red-600">{loadError}</p>}
