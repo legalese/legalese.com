@@ -95,6 +95,17 @@ export interface HealthAiConfig {
   conversationTtlDays?: number;
   blockOnOverage?: boolean;
   context?: Record<string, unknown>;
+  /**
+   * The org admin's daily AI spend limit, in minor units of `currency`
+   * (the plan's currency when it was set). Absent = no limit. Set via
+   * POST /billing/ai-spend-limit.
+   */
+  spendLimit?: AiSpendLimit;
+}
+
+export interface AiSpendLimit {
+  dailyCents: number;
+  currency: string;
 }
 
 export interface HealthData {
